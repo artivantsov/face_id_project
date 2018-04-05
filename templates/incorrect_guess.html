@@ -1,0 +1,13 @@
+{%extends 'layout.html' %}
+
+{% block body %}
+  <h1>The guess was incorrect?</h1>
+  <h2>Please enter actual name of person on your photo</h2>
+  {% from  "includes/_formhelpers.html" import render_field %}
+  <form method="POST" action="">
+    <div class="form-group">
+      {{ render_field(form.true_name, class_="form-control") }}
+    </div>
+    <p><input class="btn btn-primary" type="submit" value="Submit"></p>
+  </form>
+{% endblock %}

@@ -1,0 +1,25 @@
+{%extends 'layout.html' %}
+
+{% block body %}
+  <h3> Assessment result: </h3>
+  <hr>
+    <h1>{{ text }}</h1>
+    <h2>Resemblance {{ resemblance }} %</h2>
+
+      <p1> Is it correct? </p1>
+      <form action="correct_guess" method="post">
+          <input type="hidden" name="_method" value="Yes">
+          <input type="submit" value="Yes" class="btn btn-primary">
+      </form>
+      <form action="incorrect_guess" method="post">
+          <input type="hidden" name="_method" value="No">
+          <input type="submit" value="No" class="btn btn-danger">
+      </form>
+{% endblock %}
+
+
+<!-->
+     <form action="{{url_for('delete_article', id=1)}}" method="post">
+          <input type="hidden" name="_method" value="DELETE">
+          <input type="submit" value="Delete" class="btn btn-danger">
+      </form>

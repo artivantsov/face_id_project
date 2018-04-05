@@ -1,0 +1,44 @@
+{%extends 'layout.html' %}
+
+{% block body %}
+  <h1>Process image</h1>
+  {% from  "includes/_formhelpers.html" import render_field %}
+   <form action="" method="POST" enctype="multipart/form-data">
+
+        <fieldset>
+            <label for="image">Your Image:</label>
+            <input type="file" id="image" name="image" required>
+            <br>
+            <label for="preview">Image preview: </label>
+            <img id="preview" name="preview">
+  <script>
+    function setAttributes(el, attrs) {
+  for(var key in attrs) {
+    el.setAttribute(key, attrs[key]);
+  }
+}
+
+    window.onload = function() {
+    var files = document.querySelectorAll("input[type=file]");
+    files[0].addEventListener("change", function(e) {
+        if(this.files && this.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) { setAttributes(document.getElementById("preview"), {"src": e.target.result, "height": "420", "width": "auto"}); }
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+}
+  </script>
+        </fieldset>
+
+
+    <p><input class="btn btn-primary" type="submit" value="Submit"></p>
+</form>
+
+{% endblock %}
+<!-->
+   {{ form.hidden_tag() }}
+     {{ form.image }}
+     {% for error in form.image.errors %}
+         <span style="color: red;">{{ error }}</span>
+     {% endfor %}

@@ -1,0 +1,10 @@
+{%extends 'layout.html' %}
+
+{% block body %}
+  <h1>Recent Images</h1>
+  <ul class="list-group"></ul>
+  {% for image in images%}
+    <li class="list-group-item"><a href="images/{{image.id}}">{{image.name}}</a></li>
+  {% endfor %}
+
+{% endblock %}

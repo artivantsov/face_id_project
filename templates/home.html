@@ -1,0 +1,24 @@
+{%extends 'layout.html' %}
+
+{% block body %}
+  <div class="jumbotron text-center">
+      <h1></h1>
+      <h1 style="margin-top: 1em"> <font size="10" face="sans-serif"> I've seen you somewhere! </font> </h1> 
+
+      <p class="lead"></p>
+      {% if session.logged_in == NULL %}
+        <a href="/register" class="btn btn-primary btn-lg">Register</a>
+        <a href="/login" class="btn btn-success btn-lg">Login</a>
+      {% endif %}
+  </div>
+      <h3>The application for recognition and memorizing faces. 
+      The system is just learning and doesn't know a lot, but you can teach it some new faces :)</h3>
+
+  <style>
+p {
+    border: 2px solid DodgerBlue;
+}
+</style>
+</head>
+
+{% endblock %}
