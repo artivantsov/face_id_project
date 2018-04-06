@@ -16,7 +16,8 @@ pymongo (requires MongoDB)
 dlib  
 skimage  
 scipy  
-matplotlib (comment it out in case you don't need pictures visualized from console)  
+matplotlib (comment it out of the list of imports in face_recognizer.py 
+in case you don't need pictures visualized from console)  
 
 # Run:
 
