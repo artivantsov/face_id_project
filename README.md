@@ -1,6 +1,6 @@
 # face_id_project
 
-## Python 3 application in which face-ID algorithm and API for it is implemented.
+## Python 3 application in which face-ID algorithm and API for it are implemented.
 
 You will need the following libraries installed:
 
