@@ -4,19 +4,19 @@
 
 You will need the following libraries installed:
 
-flask\n
-flask_mysqldb
-flask_uploads
-wtforms
-flask_wtf
-passlib.hash
-functools
-werkzeug.utils
-pymongo (requires MongoDB)
-dlib
-skimage
-scipy
-matplotlib (comment it out in case you don't need pictures visualized from console)
+flask  
+flask_mysqldb  
+flask_uploads  
+wtforms  
+flask_wtf  
+passlib.hash  
+functools  
+werkzeug.utils  
+pymongo (requires MongoDB)  
+dlib  
+skimage  
+scipy  
+matplotlib (comment it out in case you don't need pictures visualized from console)  
 
 # Run:
 
