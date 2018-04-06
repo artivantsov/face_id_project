@@ -4,7 +4,7 @@
 
 You will need the following libraries installed:
 
-flask
+flask\n
 flask_mysqldb
 flask_uploads
 wtforms
