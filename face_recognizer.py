@@ -172,13 +172,13 @@ class FaceComparator:
             print("Face on this photo doesn't look familiar for me!")
         print('----------------')
 
-    def main(self, show=True):
+    def main(self, show=True, iterator=iterate_over_db):
         '''Launcher. The show parameter allows verbosity'''
 
         self.load_dictionary()
         self.process_image(show=False)
         # self.iterate_by_folders(show=False)
-        self.iterate_over_db(show=False)
+        iterator(self, show=False)
         if show:
             self.display_name()
         return self.most_likely

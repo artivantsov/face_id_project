@@ -102,12 +102,12 @@ class ComparatorTest(unittest.TestCase):
         facecom = face_recognizer.FaceComparator(img1_name)
         facecom.image_folder = image_folder
         facecom.dictionary_file = dictionary_file
-        result = facecom.main(show=False)[1]
+        result = facecom.main(show=False, iterator=facecom.iterate_by_folders)[1]
         self.assertEqual(result, 'Ivan Urgant')
 
     def test_negative(self):
         facecom = face_recognizer.FaceComparator(img2_name)
-        result = facecom.main(show=False)[0]
+        result = facecom.main(show=False, iterator=facecom.iterate_by_folders)[0]
         self.assertGreater(result, facecom.facer.threshold)
 
     def test_dictionary_file(self):
