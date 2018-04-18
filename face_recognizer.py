@@ -154,7 +154,6 @@ class FaceComparator:
     def iterate_over_db(self, show=False):
         for item in self.db.faces.find():
             name = item['name']
-            print(name)
             for face in item['faces']:
                 descriptors = [face['descriptor']]
                 self.facer.compare_faces(self.descriptors, descriptors, verbose=show)
@@ -172,13 +171,15 @@ class FaceComparator:
             print("Face on this photo doesn't look familiar for me!")
         print('----------------')
 
-    def main(self, show=True, iterator=iterate_over_db):
+    def main(self, show=True, iterator='db'):
         '''Launcher. The show parameter allows verbosity'''
 
         self.load_dictionary()
         self.process_image(show=False)
-        # self.iterate_by_folders(show=False)
-        iterator(self, show=False)
+        if iterator == 'db':
+            self.iterate_over_db(show=False)
+        elif iterator == 'folder':
+            self.iterate_by_folders(show=False)
         if show:
             self.display_name()
         return self.most_likely

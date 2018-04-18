@@ -12,15 +12,16 @@ import os
 from face_recognizer import FaceComparator
 import json
 import pymongo
+from config import config
 
 app = Flask(__name__)
 
 # Config MySQL
-app.config['MYSQL_HOST'] = 'localhost'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = '3630000'
-app.config['MYSQL_DB'] = 'myflaskapp'
-app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
+app.config['MYSQL_HOST'] = config.mysql_config.get('host')
+app.config['MYSQL_USER'] = config.mysql_config.get('user')
+app.config['MYSQL_PASSWORD'] = config.mysql_config.get('password')
+app.config['MYSQL_DB'] = config.mysql_config.get('database')
+app.config['MYSQL_CURSORCLASS'] = config.mysql_config.get('cursorclass')
 # init MYSQL
 mysql = MySQL(app)
 
@@ -28,7 +29,10 @@ app.config['UPLOADED_PHOTOS_DEST'] = os.getcwd()
 photos = UploadSet('photos', IMAGES)
 configure_uploads(app, photos)
 patch_request_class(app)  # set maximum file size, default is 16MB
-client = pymongo.MongoClient(host='localhost', port=27017)
+client = pymongo.MongoClient(
+        host=config.mongo_config.get('host'),
+        port=config.mysql_config.get('port')
+        )
 db = client.faces
 
 
