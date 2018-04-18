@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import json
 import pymongo
 from os import listdir
+from config import config
 
 # %matplotlib inline
 
@@ -13,10 +14,10 @@ class FaceRecognizer:
 
     def __init__(self):
 
-        self.threshold = 0.55
-        self.model_file_name = 'model.dat'
-        self.points_file_name = 'points.dat'
-        self.likelihood = 2    # Difference more than 1
+        self.threshold = config.threshold
+        self.model_file_name = config.model_file_name
+        self.points_file_name = config.points_file_name
+        self.likelihood = config.likelihood
 
     def load_image(self, name, show=True, title='Unknown'):
 
@@ -99,11 +100,14 @@ class FaceComparator:
     def __init__(self, image_file):
 
         self.image_file = image_file
-        self.image_folder = 'img/ordered/'
-        self.dictionary_file = 'img/ordered/dictionary.json'
+        self.image_folder = config.image_folder
+        self.dictionary_file = config.dictionary_file
         self.facer = FaceRecognizer()
-        self.most_likely = (2, 'Unknown')
-        self.db = pymongo.MongoClient(host='localhost', port=27017).faces
+        self.most_likely = config.initial_most_likely
+        self.db = pymongo.MongoClient(
+            config.mongo_config.get('host'),
+            config.mongo_config.get('port')
+            ).faces
 
     def process_image(self, show=True):
         '''Load photo, find faces on it and describe them as vectors.

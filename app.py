@@ -40,16 +40,16 @@ class Tracker():
     '''Tracker of assessment results'''
 
     def __init__(self):
-        self.descriptor = []
-        self.name = ''
-        self.true_name = ''
-        self.author = ''
-        self.confidence = 2.0
-        self.assessment = {}
-        self.multiple_faces = False
-        self.no_faces = False
-        self.faces_number = 0
-        self.low_confidence = False
+        self.descriptor = config.tracker.get('descriptor')
+        self.name = config.tracker.get('name')
+        self.true_name = config.tracker.get('true_name')
+        self.author = config.tracker.get('author')
+        self.confidence = config.tracker.get('confidence')
+        self.assessment = config.tracker.get('assessment')
+        self.multiple_faces = config.tracker.get('multiple_faces')
+        self.no_faces = config.tracker.get('no_faces')
+        self.faces_number = config.tracker.get('faces_number')
+        self.low_confidence = config.tracker.get('low_confidence')
 
 
 tracker = Tracker()
