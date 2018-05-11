@@ -213,7 +213,6 @@ def assessment(assessment):
             else:
                 text = "I see {} faces here. One of them is definately {}!".format(tracker.faces_number, assessment.get('person'))
         elif low_confidence:
-            error = True
             result_code = 3
             text = "This person doesn't look familiar..."
         else:
@@ -309,7 +308,7 @@ def try_image():
 
         return render_template('try_image.html', form=form)
     except Exception as e:
-        print('Exception in correct_guess(): {}, {}'.format(str(e), str(e.args)))
+        print('Exception in try_image(): {}, {}'.format(str(e), str(e.args)))
         return render_template('try_image.html', form=form)
 
 
