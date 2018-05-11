@@ -271,7 +271,7 @@ def try_image():
             else:
                 file = request.files['image']
                 filename = 'temp/'+secure_filename(file.filename)
-                # file.save(filename)
+                file.save(filename)
 
             try:
                 assessment = {}
@@ -416,6 +416,10 @@ def incorrect_guess():
                                   'faces_number': 1,
                                   'faces': [new_face]
                                   }
+                    if len(tracker.true_name) <= 1:
+                        mongo_item['display_name'] = tracker.true_name.split()[0]
+                    elif len(tracker.true_name) > 1:
+                        mongo_item['display_name'] = tracker.true_name.split()[0] + ' ' + tracker.true_name.split()[1][0] + '.'
                     db.faces.save(mongo_item)
 
             flash('Assessment Added', 'success')
