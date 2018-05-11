@@ -359,7 +359,7 @@ def correct_guess():
 
         return redirect(url_for('dashboard'))
     except Exception as e:
-        print('Exception in incorrect_guess(): {}, {}'.format(str(e), str(e.args)))
+        print('Exception in correct_guess(): {}, {}'.format(str(e), str(e.args)))
         form = ImageForm()
         return render_template('try_image.html', form=form)
 
