@@ -271,7 +271,7 @@ def try_image():
             else:
                 file = request.files['image']
                 filename = 'temp/'+secure_filename(file.filename)
-                file.save(filename)
+                # file.save(filename)
 
             try:
                 assessment = {}
