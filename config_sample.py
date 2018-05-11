@@ -25,6 +25,7 @@ class Config():
             'no_faces': False,
             'faces_number': 0,
             'low_confidence': False
+            'precise_prediction': False,
         }
         self.threshold = 0.55
         self.model_file_name = 'model.dat'
@@ -33,6 +34,7 @@ class Config():
         self.image_folder = 'img/ordered/'
         self.dictionary_file = 'img/ordered/dictionary.json'
         self.initial_most_likely = (2, 'Unknown')
+        self.secret_key = 'your_secret_key'
 
 
 config = Config()

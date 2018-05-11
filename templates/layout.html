@@ -4,7 +4,7 @@
     <h1></h1>
     <meta charset="utf-8">
     <title>I know you!</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.3/css/bootstrap.min.css">
+      <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}" type="text/css">
   </head>
   <body>
     {% include 'includes/_navbar.html' %}
@@ -13,8 +13,7 @@
       {% block body %}{% endblock %}
     </div>
 
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.3/js/bootstrap.min.js"></script>
-    <script src="https://cdn.ckeditor.com/4.6.2/basic/ckeditor.js"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
     <script type="text/javascript">
         CKEDITOR.replace('editor')
     </script>

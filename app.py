@@ -1,8 +1,7 @@
 from flask import Flask, render_template, flash, redirect, url_for, session
-from flask import request, logging
-from flask_mysqldb import MySQL
+from flask import request
 from flask_uploads import UploadSet, configure_uploads, IMAGES, patch_request_class
-from wtforms import Form, StringField, TextAreaField, PasswordField, validators
+from wtforms import Form, StringField, PasswordField, validators
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 from flask_wtf import FlaskForm
 from passlib.hash import sha256_crypt
@@ -12,18 +11,11 @@ import os
 from face_recognizer import FaceComparator
 import json
 import pymongo
+from bson.objectid import ObjectId
+from datetime import datetime
 from config import config
 
 app = Flask(__name__)
-
-# Config MySQL
-app.config['MYSQL_HOST'] = config.mysql_config.get('host')
-app.config['MYSQL_USER'] = config.mysql_config.get('user')
-app.config['MYSQL_PASSWORD'] = config.mysql_config.get('password')
-app.config['MYSQL_DB'] = config.mysql_config.get('database')
-app.config['MYSQL_CURSORCLASS'] = config.mysql_config.get('cursorclass')
-# init MYSQL
-mysql = MySQL(app)
 
 app.config['UPLOADED_PHOTOS_DEST'] = os.getcwd()
 photos = UploadSet('photos', IMAGES)
@@ -50,6 +42,7 @@ class Tracker():
         self.no_faces = config.tracker.get('no_faces')
         self.faces_number = config.tracker.get('faces_number')
         self.low_confidence = config.tracker.get('low_confidence')
+        self.precise_prediction = config.tracker.get('precise_prediction')
 
 
 tracker = Tracker()
@@ -70,16 +63,10 @@ def about():
 # Images
 @app.route('/images')
 def images():
-    # Create cursor
-    cur = mysql.connection.cursor()
+    result = db.archive.find({'to_show': True}).sort('create_date', -1)
 
-    # Get images
-    result = cur.execute("SELECT * FROM images")
-
-    images = cur.fetchall()
-
-    if result > 0:
-        return render_template('images.html', images=images)
+    if result.count() > 0:
+        return render_template('images.html', images=result)
     else:
         msg = 'No images found'
         return render_template('images.html', msg=msg)
@@ -88,14 +75,7 @@ def images():
 # Single image
 @app.route('/images/<string:id>/')
 def image(id):
-    # Create cursor
-    cur = mysql.connection.cursor()
-
-    # Get images
-    result = cur.execute("SELECT * FROM images WHERE id = %s", [id])
-
-    image = cur.fetchone()
-
+    image = db.archive.find_one({'_id': ObjectId(id)})
     return render_template('image.html', image=image)
 
 
@@ -120,18 +100,9 @@ def register():
         username = form.username.data
         password = sha256_crypt.encrypt(str(form.password.data))
 
-        # Create cursor
-        cur = mysql.connection.cursor()
+        user = {'name': name, 'email': email, 'username': username, 'password': password}
 
-        # Execute query
-        cur.execute("INSERT INTO users(name, email, username, password) VALUES(%s, %s, %s, %s)",
-                    (name, email, username, password))
-
-        # Commit to DB
-        mysql.connection.commit()
-
-        # Close connection
-        cur.close()
+        db.users.save(user)
 
         flash('You are now registered and can log in', 'success')
 
@@ -147,15 +118,9 @@ def login():
         username = request.form['username']
         password_candidate = request.form['password']
 
-        # Create cursor
-        cur = mysql.connection.cursor()
+        data = db.users.find_one({'username': username})
 
-        # Get user by username
-        result = cur.execute("SELECT * FROM users WHERE username = %s", [username])
-
-        if result > 0:
-            # Get srored hash
-            data = cur.fetchone()
+        if data:
             password = data['password']
 
             # Compare passwords
@@ -169,8 +134,6 @@ def login():
             else:
                 error = 'Invalid password'
                 return render_template('login.html', error=error)
-            # Close connection
-            cur.close()
         else:
             error = 'Username not found'
             return render_template('login.html', error=error)
@@ -210,44 +173,70 @@ class ImagePostForm(FlaskForm):
     true_name = StringField('True name', [validators.Length(min=1, max=200)])
 
 
+def save_error_to_db():
+    archive = {
+        'name': tracker.name,
+        'confidence': tracker.confidence,
+        'author': session['username'],
+        'create_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'true_name': tracker.true_name,
+        'no_faces': tracker.no_faces,
+        'multiple_faces': tracker.multiple_faces,
+        'low_confidence': tracker.low_confidence,
+        'precise_prediction': tracker.precise_prediction,
+        'error': True,
+        'to_show': True
+        }
+    db.archive.save(archive)
+
+
 # Assessment
 @app.route('/assessment/<string:assessment>')
 def assessment(assessment):
-    form = ImagePostForm()
+    # form = ImagePostForm()
+    error = False
     if assessment:
         assessment = json.loads(assessment)
         no_faces = assessment.get('no_faces')
         multiple_faces = assessment.get('multiple_faces')
+        low_confidence = assessment.get('low_confidence')
+        # resemblance = confidence_calculator(assessment.get('difference'))
         if no_faces:
             text = "I don't see any faces here... :("
+            result_code = 0
+            error = True
         elif multiple_faces:
-            text = "I see {} faces here. One of them is definately {}!".format(tracker.faces_number, assessment.get('person'))
-        else:
-            text = 'It seems to me, this is a photo of {}'.format(assessment.get('person'))
-        resemblance = confidence_calculator(assessment.get('difference'))
-        if resemblance < 45:
+            result_code = 2
+            error = True
+            if low_confidence:
+                text = "I see {} faces here. But I actually don't know any of them!".format(tracker.faces_number)
+            else:
+                text = "I see {} faces here. One of them is definately {}!".format(tracker.faces_number, assessment.get('person'))
+        elif low_confidence:
+            error = True
+            result_code = 3
             text = "This person doesn't look familiar..."
-            tracker.low_confidence = True
+        else:
+            result_code = 1
+            text = 'It seems to me, this is a photo of {}'.format(assessment.get('person'))
+        if error:
+            print('Error')
+            save_error_to_db()
         flash('Assessment page', 'success')
-        return render_template('assessment.html', resemblance=resemblance, text=text)  # msg=msg,
-    text = "This person doesn't look familiar..."
-    return render_template('assessment.html', resemblance=0, text=text)
+        return render_template('assessment.html', result_code=result_code, text=text)  # msg=msg,
+    text = "There was some error. No assessment received."
+    return render_template('assessment.html', result_code=-1, text=text)
 
 
 # Dashboard
 @app.route('/dashboard')
 @is_logged_in
 def dashboard():
-    # Create cursor
-    cur = mysql.connection.cursor()
 
-    # Get images
-    result = cur.execute("SELECT * FROM images")
+    result = db.faces.find().sort('name', 1)
 
-    images = cur.fetchall()
-
-    if result > 0:
-        return render_template('dashboard.html', images=images)
+    if result.count() > 0:
+        return render_template('dashboard.html', images=result)
     else:
         msg = 'No images found'
         return render_template('dashboard.html', msg=msg)
@@ -273,82 +262,106 @@ class ImageForm(FlaskForm):
 @app.route('/try_image', methods=['GET', 'POST'])
 @is_logged_in
 def try_image():
-    form = ImageForm()
-    if request.method == 'POST':
-        if 'image' not in request.files:
-            flash('No file found')
-        else:
-            file = request.files['image']
-            filename = 'temp/'+secure_filename(file.filename)
-            file.save(filename)
+    try:
+        tracker.__init__()
+        form = ImageForm()
+        if request.method == 'POST':
+            if 'image' not in request.files:
+                flash('No file found')
+            else:
+                file = request.files['image']
+                filename = 'temp/'+secure_filename(file.filename)
+                file.save(filename)
 
-        try:
-            assessment = {}
-            assessment["difference"], assessment["person"], descriptor = recognize(file)
-        except Exception as e:
-            print(e)
-            assessment = {"difference": 1, "person": "Not assessed"}
-            descriptor = []
-        if not descriptor:
-            tracker.no_faces = True
+            try:
+                assessment = {}
+                assessment["difference"], assessment["person"], descriptor = recognize(file)
+            except Exception as e:
+                print(e)
+                assessment = {"difference": 1, "person": "Not assessed"}
+                descriptor = []
+            if assessment.get('difference') == 0:
+                tracker.precise_prediction = True
+            resemblance = confidence_calculator(assessment.get('difference'))
+            if resemblance < 100*(1-config.threshold):
+                tracker.low_confidence = True
+            if not descriptor:
+                tracker.no_faces = True
 
-        tracker.name = assessment.get('person')
-        tracker.confidence = confidence_calculator(assessment.get('difference'))
-        if not tracker.no_faces:
-            tracker.descriptor = list(descriptor[0])
-        if len(descriptor) > 1:
-            tracker.multiple_faces = True
-        tracker.faces_number = len(descriptor)
+            tracker.name = assessment.get('person')
+            tracker.confidence = confidence_calculator(assessment.get('difference'))
+            if not tracker.no_faces:
+                try:
+                    tracker.descriptor = list(descriptor[0])
+                except Exception:
+                    print('Could not get a response from recognize(). Assessment: {}'.format(str(assessment)))
+            if len(descriptor) > 1:
+                tracker.multiple_faces = True
+            tracker.faces_number = len(descriptor)
 
-        assessment['no_faces'] = tracker.no_faces
-        assessment['multiple_faces'] = tracker.multiple_faces
+            assessment['no_faces'] = tracker.no_faces
+            assessment['multiple_faces'] = tracker.multiple_faces
+            assessment['low_confidence'] = tracker.low_confidence
+            assessment['precise_prediction'] = tracker.precise_prediction
 
-        assessment = json.dumps(assessment)
-        return redirect(url_for('assessment', assessment=assessment))
+            assessment = json.dumps(assessment)
+            return redirect(url_for('assessment', assessment=assessment))
 
-    return render_template('try_image.html', form=form)
+        return render_template('try_image.html', form=form)
+    except Exception as e:
+        print('Exception in correct_guess(): {}, {}'.format(str(e), str(e.args)))
+        return render_template('try_image.html', form=form)
 
 
 # If guess was correct
 @app.route('/assessment/correct_guess', methods=['POST'])
 @is_logged_in
 def correct_guess():
-    tracker.true_name = tracker.name
+    try:
+        tracker.true_name = tracker.name
 
-    # Add to mongo
-    new_face = {
-        'author': session['username'],
-        'guess': tracker.name,
-        'confidence': tracker.confidence,
-        'sql_id': 0,
-        'descriptor': tracker.descriptor
-        }
+        archive = {
+                'name': tracker.name,
+                'confidence': tracker.confidence,
+                'author': session['username'],
+                'create_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'true_name': tracker.true_name,
+                'no_faces': tracker.no_faces,
+                'multiple_faces': tracker.multiple_faces,
+                'low_confidence': tracker.low_confidence,
+                'precise_prediction': tracker.precise_prediction,
+                'error': False,
+                'to_show': True,
+                }
+        archive_id = db.archive.save(archive)
 
-    if (not tracker.multiple_faces) and (not tracker.no_faces) and (not tracker.low_confidence):
-        mongo_item = db.faces.find_one({'name': tracker.true_name})
-        if mongo_item:
-            mongo_item['faces_number'] += 1
-            if mongo_item['faces_number'] <= 5:
-                mongo_item.get('faces').append(new_face)
-                db.faces.save(mongo_item)
+        # Add to mongo
+        new_face = {
+            'author': session['username'],
+            'guess': tracker.name,
+            'confidence': tracker.confidence,
+            'descriptor': tracker.descriptor,
+            'archive_id': archive_id
+            }
 
-    # Create cursor
-    cur = mysql.connection.cursor()
+        if (not tracker.multiple_faces) and (not tracker.no_faces) and \
+                (not tracker.low_confidence) and (not tracker.precise_prediction):
+            mongo_item = db.faces.find_one({'name': tracker.true_name})
+            if mongo_item:
+                mongo_item['faces_number'] = len(mongo_item.get('faces')) + 1
+                if mongo_item['faces_number'] <= 5:
+                    mongo_item.get('faces').append(new_face)
+                    db.faces.save(mongo_item)
 
-    # Execute
-    cur.execute("INSERT INTO images(name, confidence, author, true_name) VALUES(%s, %s, %s, %s)",
-                (tracker.name, tracker.confidence, session['username'], tracker.true_name))
-    # Commit to DB
-    mysql.connection.commit()
+        flash('Assessment Added', 'success')
 
-    # Close connection
-    cur.close()
+        tracker.__init__()
 
-    flash('Assessment Added', 'success')
-
-    tracker.__init__()
-
-    return redirect(url_for('dashboard'))
+        return redirect(url_for('dashboard'))
+    except Exception as e:
+        print('Exception in incorrect_guess(): {}, {}'.format(str(e), str(e.args)))
+        form = ImageForm()
+        return render_template('try_image.html', form=form)
 
 
 # True name form
@@ -361,74 +374,102 @@ class NameForm(Form):
 @is_logged_in
 def incorrect_guess():
     form = NameForm(request.form)
-    if request.method == 'POST' and form.validate():
-        tracker.true_name = form.true_name.data
+    try:
+        if request.method == 'POST' and form.validate():
+            tracker.true_name = form.true_name.data
 
-        # Add to mongo
-        new_face = {
-                     'author': session['username'],
-                     'guess': tracker.name,
-                     'confidence': tracker.confidence,
-                     'sql_id': 0,
-                     'descriptor': tracker.descriptor
-        }
+            archive = {
+                    'name': tracker.name,
+                    'confidence': tracker.confidence,
+                    'author': session['username'],
+                    'create_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'true_name': tracker.true_name,
+                    'no_faces': tracker.no_faces,
+                    'multiple_faces': tracker.multiple_faces,
+                    'low_confidence': tracker.low_confidence,
+                    'precise_prediction': tracker.precise_prediction,
+                    'error': False,
+                    'to_show': True,
+                    }
+            archive_id = db.archive.save(archive)
 
-        if (not tracker.multiple_faces) and (not tracker.no_faces):
-            mongo_item = db.faces.find_one({'name': tracker.true_name})
-            if mongo_item:
-                mongo_item['faces_number'] += 1
-                if mongo_item['faces_number'] <= 5:
-                    mongo_item.get('faces').append(new_face)
+            # Add to mongo
+            new_face = {
+                         'author': session['username'],
+                         'guess': tracker.name,
+                         'confidence': tracker.confidence,
+                         'descriptor': tracker.descriptor,
+                         'archive_id': archive_id,
+            }
+
+            if (not tracker.multiple_faces) and (not tracker.no_faces) and \
+                    (not tracker.precise_prediction):
+                mongo_item = db.faces.find_one({'name': tracker.true_name})
+                if mongo_item:
+                    mongo_item['faces_number'] += 1
+                    if mongo_item['faces_number'] <= 5:
+                        mongo_item.get('faces').append(new_face)
+                        db.faces.save(mongo_item)
+                else:
+                    mongo_item = {'name': tracker.true_name,
+                                  'index': -1,
+                                  'faces_number': 1,
+                                  'faces': [new_face]
+                                  }
                     db.faces.save(mongo_item)
-            else:
-                mongo_item = {'name': tracker.true_name,
-                              'index': -1,
-                              'faces_number': 1,
-                              'faces': [new_face]
-                              }
-                db.faces.save(mongo_item)
 
-        # Create cursor
-        cur = mysql.connection.cursor()
+            flash('Assessment Added', 'success')
 
-        # Execute
-        cur.execute("INSERT INTO images(name, confidence, author, true_name) VALUES(%s, %s, %s, %s)",
-                    (tracker.name, tracker.confidence, session['username'], tracker.true_name))
-        # Commit to DB
-        mysql.connection.commit()
+            tracker.__init__()
 
-        # Close connection
-        cur.close()
-
-        flash('Assessment Added', 'success')
-
-        tracker.__init__()
-
-        return redirect(url_for('dashboard'))
-    return render_template('incorrect_guess.html', form=form)
+            return redirect(url_for('dashboard'))
+        return render_template('incorrect_guess.html', form=form)
+    except Exception as e:
+        print('Exception in incorrect_guess(): {}, {}'.format(str(e), str(e.args)))
+        form = ImageForm()
+        return render_template('try_image.html', form=form)
 
 
-# Delete article
+# Delete image
 @app.route('/delete_image/<string:id>', methods=['POST'])
 @is_logged_in
 def delete_image(id):
-    # Create cursor
-    cur = mysql.connection.cursor()
 
-    # Execute
-    cur.execute("DELETE FROM images WHERE id = %s", [id])
+    photo = db.archive.find_one({'_id': ObjectId(id)})
+    true_name = 'no_name'
+    if photo:
+        print(photo)
+        true_name = photo.get('true_name')
 
-    # Commit to DB
-    mysql.connection.commit()
+    db.archive.delete_one({'_id': ObjectId(id)})
 
-    # Close connection
-    cur.close()
+    user = db.faces.find_one({'name': true_name})
+    if user:
+        for face in user.get('faces'):
+            if face.get('archive_id') == ObjectId(id):
+                user.get('faces').remove(face)
+        user['faces_number'] = len(user.get('faces'))
+        db.faces.save(user)
 
-    flash('Image Deleted', 'success')
+        flash('Image Deleted', 'success')
 
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('images'))
+
+
+# Hide image
+@app.route('/hide_image/<string:id>', methods=['POST'])
+@is_logged_in
+def hide_image(id):
+
+    photo = db.archive.find_one({'_id': ObjectId(id)})
+    photo['to_show'] = False
+    db.archive.save(photo)
+
+    flash('Image has been hidden', 'success')
+
+    return redirect(url_for('images'))
 
 
 if __name__ == '__main__':
-    app.secret_key = 'secret123'
+    app.secret_key = config.secret_key
     app.run(debug=True)

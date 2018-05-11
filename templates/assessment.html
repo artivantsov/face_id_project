@@ -4,22 +4,27 @@
   <h3> Assessment result: </h3>
   <hr>
     <h1>{{ text }}</h1>
-    <h2>Resemblance {{ resemblance }} %</h2>
+      {% if result_code == 1 %}
+        <p1> Is it correct? </p1>
+        <form action="correct_guess" method="post">
+            <input type="hidden" name="_method" value="Yes">
+            <input type="submit" value="Yes" class="btn btn-primary">
+        </form>
+        <form action="incorrect_guess" method="post">
+            <input type="hidden" name="_method" value="No">
+            <input type="submit" value="No" class="btn btn-danger">
+        </form>
+      {% elif result_code == 3 %}
+        <p1> Could you tell me who is that? </p1>
+        <form action="incorrect_guess" method="post">
+            <input type="hidden" name="_method" value="Yes">
+            <input type="submit" value="Yes" class="btn btn-primary">
+        </form>
+        <br>
+        <a class="btn btn-success" href="/dashboard"> Not now </a>
 
-      <p1> Is it correct? </p1>
-      <form action="correct_guess" method="post">
-          <input type="hidden" name="_method" value="Yes">
-          <input type="submit" value="Yes" class="btn btn-primary">
-      </form>
-      <form action="incorrect_guess" method="post">
-          <input type="hidden" name="_method" value="No">
-          <input type="submit" value="No" class="btn btn-danger">
-      </form>
+
+      {% else %}
+        <a class="btn btn-success" href="/try_image"> Try a new image </a>
+      {% endif %}
 {% endblock %}
-
-
-<!-->
-     <form action="{{url_for('delete_article', id=1)}}" method="post">
-          <input type="hidden" name="_method" value="DELETE">
-          <input type="submit" value="Delete" class="btn btn-danger">
-      </form>

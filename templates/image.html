@@ -2,6 +2,33 @@
 
 {% block body %}
   <h1>{{image.name}}</h1>
-  <small>Added by {{image.author}} on {{ image.create_date}}</small>
+  <small>Added by {{image.author}} on {{image.create_date}}</small>
   <hr>
+  <div class table-responsive>
+      <table class="table table-striped">
+          <tr>
+              <th>Name</th>
+              <th>Guess</th>
+              <th>Confidence</th>
+              <th>Added by</th>
+              <th>No faces</th>
+              <th>Multiple faces</th>
+              <th>Low confidence</th>
+              <th>Precisely predicted</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+              <tr>
+                <td>{{image.true_name}}</td>
+                <td>{{image.name}}</td>
+                <td>{{image.confidence}}</td>
+                <td>{{image.author}}</td>
+                <td>{{image.no_faces}}</td>
+                <td>{{image.multiple_faces}}</td>
+                <td>{{image.low_confidence}}</td>
+                <td>{{image.precise_prediction}}</td>
+                <td>{{image.create_date}}</td>
+              </tr>
+        </table>
+  </div>
 {% endblock %}
