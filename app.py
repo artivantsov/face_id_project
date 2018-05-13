@@ -60,10 +60,27 @@ def about():
     return render_template('about.html')
 
 
+# Check if user logged in
+def is_logged_in(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        if 'logged_in' in session:
+            return f(*args, **kwargs)
+        else:
+            flash('Unauthorized, Please login', 'danger')
+            return redirect(url_for('login'))
+    return wrap
+
+
 # Images
 @app.route('/images')
+@is_logged_in
 def images():
-    result = db.archive.find({'to_show': True}).sort('create_date', -1)
+    user = session['username']
+    if user == 'admin':
+        result = db.archive.find().sort('create_date', -1)
+    else:
+        result = db.archive.find({'author': session['username']}).sort('create_date', -1)
 
     if result.count() > 0:
         return render_template('images.html', images=result)
@@ -139,18 +156,6 @@ def login():
             return render_template('login.html', error=error)
 
     return render_template('login.html')
-
-
-# Check if user logged in
-def is_logged_in(f):
-    @wraps(f)
-    def wrap(*args, **kwargs):
-        if 'logged_in' in session:
-            return f(*args, **kwargs)
-        else:
-            flash('Unauthorized, Please login', 'danger')
-            return redirect(url_for('login'))
-    return wrap
 
 
 # Calculate confidence from difference
