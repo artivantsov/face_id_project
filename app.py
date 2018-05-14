@@ -78,7 +78,6 @@ def is_logged_in(f):
 @is_logged_in
 def images():
     if session['username'] == 'admin':
-        print('Hello admin!')
         result = db.archive.find().sort('create_date', -1)
     else:
         result = db.archive.find({'author': session['username']}).sort('create_date', -1)
@@ -99,9 +98,9 @@ def image(id):
 
 # Register Form class
 class RegisterForm(Form):
-    name = StringField('Name', [validators.Length(min=1, max=50)])
+    # name = StringField('Name', [validators.Length(min=1, max=50)])
     username = StringField('Username', [validators.Length(min=4, max=25)])
-    email = StringField('Email', [validators.Length(min=6, max=50)])
+    # email = StringField('Email', [validators.Length(min=6, max=50)])
     password = PasswordField('Password', [
         validators.DataRequired(),
         validators.EqualTo('confirm', message='Passwords do not match')])
@@ -113,12 +112,12 @@ class RegisterForm(Form):
 def register():
     form = RegisterForm(request.form)
     if request.method == 'POST' and form.validate():
-        name = form.name.data
-        email = form.email.data
+        # name = form.name.data
+        # email = form.email.data
         username = form.username.data
         password = sha256_crypt.encrypt(str(form.password.data))
 
-        user = {'name': name, 'email': email, 'username': username, 'password': password}
+        user = {'username': username, 'password': password}
 
         db.users.save(user)
 

@@ -11,12 +11,12 @@
           </li>
           <li class="nav-item active">
             <a class="nav-link" href="/about">About</a>
+
+          {% if session.logged_in %}
           </li>
           <li class="nav-item active">
             <a class="nav-link" href="/images">Images</a>
           </li>
-
-          {% if session.logged_in %}
           <li class="nav-item active">
             <a class="nav-link" href="/dashboard">Dashboard</a>
           </li>
