@@ -28,24 +28,6 @@ client = pymongo.MongoClient(
 db = client.faces
 
 
-class Tracker():
-    '''Tracker of assessment results'''
-
-    def __init__(self):
-        self.descriptor = config.tracker.get('descriptor')
-        self.name = config.tracker.get('name')
-        self.true_name = config.tracker.get('true_name')
-        self.author = config.tracker.get('author')
-        self.confidence = config.tracker.get('confidence')
-        self.assessment = config.tracker.get('assessment')
-        self.multiple_faces = config.tracker.get('multiple_faces')
-        self.no_faces = config.tracker.get('no_faces')
-        self.faces_number = config.tracker.get('faces_number')
-        self.low_confidence = config.tracker.get('low_confidence')
-        self.precise_prediction = config.tracker.get('precise_prediction')
-
-
-tracker = Tracker()
 facecom = FaceComparator()
 
 
@@ -71,6 +53,20 @@ def is_logged_in(f):
             flash('Unauthorized, Please login', 'danger')
             return redirect(url_for('login'))
     return wrap
+
+
+def restore_session(session):
+        session['descriptor'] = config.tracker.get('descriptor')
+        session['name'] = config.tracker.get('name')
+        session['true_name'] = config.tracker.get('true_name')
+        session['confidence'] = config.tracker.get('confidence')
+        session['multiple_faces'] = config.tracker.get('multiple_faces')
+        session['no_faces'] = config.tracker.get('no_faces')
+        session['faces_number'] = config.tracker.get('faces_number')
+        session['low_confidence'] = config.tracker.get('low_confidence')
+        session['precise_prediction'] = config.tracker.get('precise_prediction')
+        session['error_added'] = False
+        return session
 
 
 # Images
@@ -180,15 +176,15 @@ class ImagePostForm(FlaskForm):
 
 def save_error_to_db():
     archive = {
-        'name': tracker.name,
-        'confidence': tracker.confidence,
+        'name': session['name'],
+        'confidence': session['confidence'],
         'author': session['username'],
         'create_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'true_name': tracker.true_name,
-        'no_faces': tracker.no_faces,
-        'multiple_faces': tracker.multiple_faces,
-        'low_confidence': tracker.low_confidence,
-        'precise_prediction': tracker.precise_prediction,
+        'true_name': session['true_name'],
+        'no_faces': session['no_faces'],
+        'multiple_faces': session['multiple_faces'],
+        'low_confidence': session['low_confidence'],
+        'precise_prediction': session['precise_prediction'],
         'error': True,
         'to_show': True
         }
@@ -214,9 +210,9 @@ def assessment(assessment):
             result_code = 2
             error = True
             if low_confidence:
-                text = "I see {} faces here. But I actually don't know any of them!".format(tracker.faces_number)
+                text = "I see {} faces here. But I actually don't know any of them!".format(session['faces_number'])
             else:
-                text = "I see {} faces here. One of them is definately {}!".format(tracker.faces_number, assessment.get('person'))
+                text = "I see {} faces here. One of them is definately {}!".format(session['faces_number'], assessment.get('person'))
         elif low_confidence:
             result_code = 3
             text = "This person doesn't look familiar..."
@@ -225,7 +221,9 @@ def assessment(assessment):
             text = 'It seems to me, this is a photo of {}'.format(assessment.get('person'))
         if error:
             print('Error')
-            save_error_to_db()
+            if not session['error_added']:
+                save_error_to_db()
+                session['error_added'] = True
         flash('Assessment page', 'success')
         return render_template('assessment.html', result_code=result_code, text=text)  # msg=msg,
     text = "There was some error. No assessment received."
@@ -269,7 +267,7 @@ class ImageForm(FlaskForm):
 @is_logged_in
 def try_image():
     try:
-        tracker.__init__()
+        restore_session(session)
         form = ImageForm()
         if request.method == 'POST':
             if 'image' not in request.files:
@@ -287,28 +285,28 @@ def try_image():
                 assessment = {"difference": 1, "person": "Not assessed"}
                 descriptor = []
             if assessment.get('difference') == 0:
-                tracker.precise_prediction = True
+                session['precise_prediction'] = True
             resemblance = confidence_calculator(assessment.get('difference'))
             if resemblance < 100*(1-config.threshold):
-                tracker.low_confidence = True
+                session['low_confidence'] = True
             if not descriptor:
-                tracker.no_faces = True
+                session['no_faces'] = True
 
-            tracker.name = assessment.get('person')
-            tracker.confidence = confidence_calculator(assessment.get('difference'))
-            if not tracker.no_faces:
+            session['name'] = assessment.get('person')
+            session['confidence'] = confidence_calculator(assessment.get('difference'))
+            if not session['no_faces']:
                 try:
-                    tracker.descriptor = list(descriptor[0])
+                    session['descriptor'] = list(descriptor[0])
                 except Exception:
                     print('Could not get a response from recognize(). Assessment: {}'.format(str(assessment)))
             if len(descriptor) > 1:
-                tracker.multiple_faces = True
-            tracker.faces_number = len(descriptor)
+                session['multiple_faces'] = True
+            session['faces_number'] = len(descriptor)
 
-            assessment['no_faces'] = tracker.no_faces
-            assessment['multiple_faces'] = tracker.multiple_faces
-            assessment['low_confidence'] = tracker.low_confidence
-            assessment['precise_prediction'] = tracker.precise_prediction
+            assessment['no_faces'] = session['no_faces']
+            assessment['multiple_faces'] = session['multiple_faces']
+            assessment['low_confidence'] = session['low_confidence']
+            assessment['precise_prediction'] = session['precise_prediction']
 
             assessment = json.dumps(assessment)
             return redirect(url_for('assessment', assessment=assessment))
@@ -324,18 +322,18 @@ def try_image():
 @is_logged_in
 def correct_guess():
     try:
-        tracker.true_name = tracker.name
+        session['true_name'] = session['name']
 
         archive = {
-                'name': tracker.name,
-                'confidence': tracker.confidence,
+                'name': session['name'],
+                'confidence': session['confidence'],
                 'author': session['username'],
                 'create_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'true_name': tracker.true_name,
-                'no_faces': tracker.no_faces,
-                'multiple_faces': tracker.multiple_faces,
-                'low_confidence': tracker.low_confidence,
-                'precise_prediction': tracker.precise_prediction,
+                'true_name': session['true_name'],
+                'no_faces': session['no_faces'],
+                'multiple_faces': session['multiple_faces'],
+                'low_confidence': session['low_confidence'],
+                'precise_prediction': session['precise_prediction'],
                 'error': False,
                 'to_show': True,
                 }
@@ -344,15 +342,15 @@ def correct_guess():
         # Add to mongo
         new_face = {
             'author': session['username'],
-            'guess': tracker.name,
-            'confidence': tracker.confidence,
-            'descriptor': tracker.descriptor,
+            'guess': session['name'],
+            'confidence': session['confidence'],
+            'descriptor': session['descriptor'],
             'archive_id': archive_id
             }
 
-        if (not tracker.multiple_faces) and (not tracker.no_faces) and \
-                (not tracker.low_confidence) and (not tracker.precise_prediction):
-            mongo_item = db.faces.find_one({'name': tracker.true_name})
+        if (not session['multiple_faces']) and (not session['no_faces']) and \
+                (not session['low_confidence']) and (not session['precise_prediction']):
+            mongo_item = db.faces.find_one({'name': session['true_name']})
             if mongo_item:
                 mongo_item['faces_number'] = len(mongo_item.get('faces')) + 1
                 if mongo_item['faces_number'] <= 5:
@@ -361,7 +359,7 @@ def correct_guess():
 
         flash('Assessment Added', 'success')
 
-        tracker.__init__()
+        restore_session(session)
 
         return redirect(url_for('dashboard'))
     except Exception as e:
@@ -382,18 +380,18 @@ def incorrect_guess():
     form = NameForm(request.form)
     try:
         if request.method == 'POST' and form.validate():
-            tracker.true_name = form.true_name.data
+            session['true_name'] = form.true_name.data
 
             archive = {
-                    'name': tracker.name,
-                    'confidence': tracker.confidence,
+                    'name': session['name'],
+                    'confidence': session['confidence'],
                     'author': session['username'],
                     'create_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'true_name': tracker.true_name,
-                    'no_faces': tracker.no_faces,
-                    'multiple_faces': tracker.multiple_faces,
-                    'low_confidence': tracker.low_confidence,
-                    'precise_prediction': tracker.precise_prediction,
+                    'true_name': session['true_name'],
+                    'no_faces': session['no_faces'],
+                    'multiple_faces': session['multiple_faces'],
+                    'low_confidence': session['low_confidence'],
+                    'precise_prediction': session['precise_prediction'],
                     'error': False,
                     'to_show': True,
                     }
@@ -402,35 +400,35 @@ def incorrect_guess():
             # Add to mongo
             new_face = {
                          'author': session['username'],
-                         'guess': tracker.name,
-                         'confidence': tracker.confidence,
-                         'descriptor': tracker.descriptor,
+                         'guess': session['name'],
+                         'confidence': session['confidence'],
+                         'descriptor': session['descriptor'],
                          'archive_id': archive_id,
             }
 
-            if (not tracker.multiple_faces) and (not tracker.no_faces) and \
-                    (not tracker.precise_prediction):
-                mongo_item = db.faces.find_one({'name': tracker.true_name})
+            if (not session['multiple_faces']) and (not session['no_faces']) and \
+                    (not session['precise_prediction']):
+                mongo_item = db.faces.find_one({'name': session['true_name']})
                 if mongo_item:
                     mongo_item['faces_number'] += 1
                     if mongo_item['faces_number'] <= 5:
                         mongo_item.get('faces').append(new_face)
                         db.faces.save(mongo_item)
                 else:
-                    mongo_item = {'name': tracker.true_name,
+                    mongo_item = {'name': session['true_name'],
                                   'index': -1,
                                   'faces_number': 1,
                                   'faces': [new_face]
                                   }
-                    if len(tracker.true_name) <= 1:
-                        mongo_item['display_name'] = tracker.true_name.split()[0]
-                    elif len(tracker.true_name) > 1:
-                        mongo_item['display_name'] = tracker.true_name.split()[0] + ' ' + tracker.true_name.split()[1][0] + '.'
+                    if len(session['true_name']) <= 1:
+                        mongo_item['display_name'] = session['true_name'].split()[0]
+                    elif len(session['true_name']) > 1:
+                        mongo_item['display_name'] = session['true_name'].split()[0] + ' ' + session['true_name'].split()[1][0] + '.'
                     db.faces.save(mongo_item)
 
             flash('Assessment Added', 'success')
 
-            tracker.__init__()
+            restore_session(session)
 
             return redirect(url_for('dashboard'))
         return render_template('incorrect_guess.html', form=form)
