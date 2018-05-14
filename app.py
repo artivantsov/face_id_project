@@ -46,6 +46,7 @@ class Tracker():
 
 
 tracker = Tracker()
+facecom = FaceComparator()
 
 
 # Index
@@ -76,8 +77,8 @@ def is_logged_in(f):
 @app.route('/images')
 @is_logged_in
 def images():
-    user = session['username']
-    if user == 'admin':
+    if session['username'] == 'admin':
+        print('Hello admin!')
         result = db.archive.find().sort('create_date', -1)
     else:
         result = db.archive.find({'author': session['username']}).sort('create_date', -1)
@@ -248,9 +249,11 @@ def dashboard():
 
 # Face recognition
 def recognize(image):
-    facecom = FaceComparator(image)
-    facecom.main()
-    return facecom.most_likely[0], facecom.most_likely[1], facecom.descriptors
+
+    facecom.main(image)
+    to_return = (facecom.most_likely[0], facecom.most_likely[1], facecom.descriptors)
+    facecom.restore_default()
+    return to_return
 
 
 # Image Form class

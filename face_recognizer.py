@@ -97,9 +97,9 @@ class FaceComparator:
     Class to compare people from photos with some known people.
     '''
 
-    def __init__(self, image_file):
+    def __init__(self):
 
-        self.image_file = image_file
+        # self.image_file = image_file
         self.image_folder = config.image_folder
         self.dictionary_file = config.dictionary_file
         self.facer = FaceRecognizer()
@@ -108,16 +108,26 @@ class FaceComparator:
             config.mongo_config.get('host'),
             config.mongo_config.get('port')
             ).faces
+        self.facer.run()
 
     def process_image(self, show=True):
         '''Load photo, find faces on it and describe them as vectors.
            The show parameter allows verbosity'''
 
-        self.facer.run()
         self.image = self.facer.load_image(self.image_file, show)
         self.faces = self.facer.detect_faces(self.image)
         self.shapes = self.facer.make_mask(self.image, self.faces, show_coords=show)
         self.descriptors = self.facer.get_face_descriptors(self.image, self.shapes)
+
+    def restore_default(self):
+        '''Set all image parameters to None'''
+
+        self.image_file = None
+        self.image = None
+        self.faces = None
+        self.shapes = None
+        self.descriptors = None
+        self.most_likely = config.initial_most_likely
 
     def load_dictionary(self):
         '''Load dictionary of numbers of known people and their actual names'''
@@ -167,6 +177,7 @@ class FaceComparator:
         '''Display answer in human-readable format'''
 
         print('\n----------------')
+        print('Likelihood: {}'.format(self.most_likely[0]))
         if self.most_likely[0] < self.facer.threshold:
             print('I guess this is photo of {}!'.format(self.most_likely[1]))
         elif self.most_likely[0] > 1:
@@ -175,10 +186,11 @@ class FaceComparator:
             print("Face on this photo doesn't look familiar for me!")
         print('----------------')
 
-    def main(self, show=True, iterator='db'):
+    def main(self, image_file, show=True, iterator='db'):
         '''Launcher. The show parameter allows verbosity'''
 
-        self.load_dictionary()
+        # self.load_dictionary()
+        self.image_file = image_file
         self.process_image(show=False)
         if iterator == 'db':
             self.iterate_over_db(show=False)
