@@ -382,13 +382,17 @@ def try_image():
             assessment['low_confidence'] = session['low_confidence']
             assessment['precise_prediction'] = session['precise_prediction']
 
+            print('1')
             assessment = json.dumps(assessment)
+            print('2')
             send_assessment_to_telegram(session)
+            print('3')
             return redirect(url_for('assessment', assessment=assessment))
-
+        print('4')
         return render_template('try_image.html', form=form)
     except Exception as e:
         print('Exception in try_image(): {}, {}'.format(str(e), str(e.args)))
+        form = ImageForm()
         return render_template('try_image.html', form=form)
 
 
