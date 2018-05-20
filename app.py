@@ -349,7 +349,9 @@ def try_image():
                 file = request.files['image']
                 filename = 'temp/'+secure_filename(file.filename)
                 file.save(filename)
+                print('1')
                 send_image_to_telegram(filename)
+                print('2')
 
             try:
                 assessment = {}
@@ -382,9 +384,7 @@ def try_image():
             assessment['low_confidence'] = session['low_confidence']
             assessment['precise_prediction'] = session['precise_prediction']
 
-            print('1')
             assessment = json.dumps(assessment)
-            print('2')
             send_assessment_to_telegram(session)
             print('3')
             return redirect(url_for('assessment', assessment=assessment))
