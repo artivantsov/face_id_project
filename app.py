@@ -389,11 +389,10 @@ def try_image():
             print('3')
             return redirect(url_for('assessment', assessment=assessment))
         print('4')
-        return render_template('try_image.html')
+        return render_template('try_image.html', form=form)
     except Exception as e:
         print('Exception in try_image(): {}, {}'.format(str(e), str(e.args)))
-        form = ImageForm()
-        return render_template('try_image.html', form=form)
+        return render_template('try_image.html')
 
 
 # If guess was correct
