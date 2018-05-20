@@ -14,8 +14,8 @@ import pymongo
 from bson.objectid import ObjectId
 from datetime import datetime
 from config import config
-import telegram  # pip install python-telegram-bot --upgrade
-from telegram.ext import Updater# pip install python-telegram-bot[socks]
+# import telegram  # pip install python-telegram-bot --upgrade
+from telegram.ext import Updater  # pip install python-telegram-bot[socks]
 
 
 app = Flask(__name__)
@@ -90,6 +90,7 @@ def send_image_to_telegram(image):
 
 def send_assessment_to_telegram(session):
     '''Send info about session to telegram'''
+
     try:
         text = 'User: {}\n\
         Time: {}\n\
@@ -241,12 +242,6 @@ def logout():
     return redirect(url_for('login'))
 
 
-# Image form
-class ImagePostForm(FlaskForm):
-    name = StringField('Name', [validators.Length(min=1, max=200)])
-    true_name = StringField('True name', [validators.Length(min=1, max=200)])
-
-
 def save_error_to_db():
     archive = {
         'name': session['name'],
@@ -267,7 +262,6 @@ def save_error_to_db():
 # Assessment
 @app.route('/assessment/<string:assessment>')
 def assessment(assessment):
-    # form = ImagePostForm()
     error = False
     if assessment:
         assessment = json.loads(assessment)
@@ -339,60 +333,56 @@ class ImageForm(FlaskForm):
 @app.route('/try_image', methods=['GET', 'POST'])
 @is_logged_in
 def try_image():
-    #try:
-    restore_session(session)
-    form = ImageForm()
-    if request.method == 'POST':
-        if 'image' not in request.files:
-            flash('No file found')
-        else:
-            file = request.files['image']
-            filename = 'temp/'+secure_filename(file.filename)
-            file.save(filename)
-            print('1')
-            send_image_to_telegram(filename)
-            print('2')
+    try:
+        restore_session(session)
+        form = ImageForm()
+        if request.method == 'POST':
+            if 'image' not in request.files:
+                flash('No file found')
+            else:
+                file = request.files['image']
+                filename = 'temp/'+secure_filename(file.filename)
+                file.save(filename)
+                send_image_to_telegram(filename)
 
-        try:
-            assessment = {}
-            assessment["difference"], assessment["person"], descriptor = recognize(file)
-        except Exception as e:
-            print(e)
-            assessment = {"difference": 1, "person": "Not assessed"}
-            descriptor = []
-        if assessment.get('difference') == 0:
-            session['precise_prediction'] = True
-        resemblance = confidence_calculator(assessment.get('difference'))
-        if resemblance < 100*(1-config.threshold):
-            session['low_confidence'] = True
-        if not descriptor:
-            session['no_faces'] = True
-
-        session['name'] = assessment.get('person')
-        session['confidence'] = confidence_calculator(assessment.get('difference'))
-        if not session['no_faces']:
             try:
-                session['descriptor'] = list(descriptor[0])
-            except Exception:
-                print('Could not get a response from recognize(). Assessment: {}'.format(str(assessment)))
-        if len(descriptor) > 1:
-            session['multiple_faces'] = True
-        session['faces_number'] = len(descriptor)
+                assessment = {}
+                assessment["difference"], assessment["person"], descriptor = recognize(file)
+            except Exception as e:
+                print(e)
+                assessment = {"difference": 1, "person": "Not assessed"}
+                descriptor = []
+            if assessment.get('difference') == 0:
+                session['precise_prediction'] = True
+            resemblance = confidence_calculator(assessment.get('difference'))
+            if resemblance < 100*(1-config.threshold):
+                session['low_confidence'] = True
+            if not descriptor:
+                session['no_faces'] = True
 
-        assessment['no_faces'] = session['no_faces']
-        assessment['multiple_faces'] = session['multiple_faces']
-        assessment['low_confidence'] = session['low_confidence']
-        assessment['precise_prediction'] = session['precise_prediction']
+            session['name'] = assessment.get('person')
+            session['confidence'] = confidence_calculator(assessment.get('difference'))
+            if not session['no_faces']:
+                try:
+                    session['descriptor'] = list(descriptor[0])
+                except Exception:
+                    print('Could not get a response from recognize(). Assessment: {}'.format(str(assessment)))
+            if len(descriptor) > 1:
+                session['multiple_faces'] = True
+            session['faces_number'] = len(descriptor)
 
-        assessment = json.dumps(assessment)
-        send_assessment_to_telegram(session)
-        print('3')
-        return redirect(url_for('assessment', assessment=assessment))
-    print('4')
-    return render_template('try_image.html', form=form)
-    #except Exception as e:
-    #    print('Exception in try_image(): {}, {}'.format(str(e), str(e.args)))
-    #    return render_template('try_image.html')
+            assessment['no_faces'] = session['no_faces']
+            assessment['multiple_faces'] = session['multiple_faces']
+            assessment['low_confidence'] = session['low_confidence']
+            assessment['precise_prediction'] = session['precise_prediction']
+
+            assessment = json.dumps(assessment)
+            send_assessment_to_telegram(session)
+            return redirect(url_for('assessment', assessment=assessment))
+        return render_template('try_image.html', form=form)
+    except Exception as e:
+        print('Exception in try_image(): {}, {}'.format(str(e), str(e.args)))
+        return render_template('try_image.html')
 
 
 # If guess was correct
