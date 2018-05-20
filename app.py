@@ -14,6 +14,9 @@ import pymongo
 from bson.objectid import ObjectId
 from datetime import datetime
 from config import config
+import telegram  # pip install python-telegram-bot --upgrade
+from telegram.ext import Updater# pip install python-telegram-bot[socks]
+
 
 app = Flask(__name__)
 
@@ -29,6 +32,8 @@ db = client.faces
 
 
 facecom = FaceComparator()
+REQUEST_KWARGS = config.request_kwargs
+updater = Updater(config.telegram_token, request_kwargs=REQUEST_KWARGS)
 
 
 # Index
@@ -67,6 +72,74 @@ def restore_session(session):
         session['precise_prediction'] = config.tracker.get('precise_prediction')
         session['error_added'] = False
         return session
+
+
+def send_image_to_telegram(image):
+    '''Send picture to telegram account'''
+
+    try:
+        document = open(image, 'rb')
+        # updater.bot.send_chat_action(config.my_telegram_id, 'upload_document')
+        updater.bot.send_document(config.my_telegram_id,
+                                  document,
+                                  timeout=config.telegram_timeout)
+        document.close()
+    except Exception as e:
+        print(e.args)
+
+
+def send_assessment_to_telegram(session):
+    '''Send info about session to telegram'''
+    try:
+        text = 'User: {}\n\
+        Time: {}\n\
+        Faces number: {}\n\
+        Guess was: {}\n\
+        Confidence: {}\n\
+        Parameters\n\
+        Multiple faces: {}\n\
+        No faces: {}\n\
+        Low confidence: {}\n\
+        Precise prediction (already in DB): {}\n\
+        '.format(
+            session.get('username'),
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            session.get('faces_number'),
+            session.get('name'),
+            session.get('confidence'),
+            session.get('multiple_faces'),
+            session.get('no_faces'),
+            session.get('low_confidence'),
+            session.get('precise_prediction')
+            )
+        updater.bot.send_message(config.my_telegram_id,
+                                 text,
+                                 timeout=config.telegram_timeout)
+    except Exception as e:
+        print(e.args)
+
+
+def send_result_to_telegram(session, text):
+    '''Send info about session to telegram'''
+
+    try:
+        text = '{}\n\
+        User: {}\n\
+        Time: {}\n\
+        Name: {}\n\
+        Guess was: {}\n\
+        '.format(
+            text,
+            session.get('username'),
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            session.get('true_name'),
+            session.get('name')
+            )
+        updater.bot.send_message(config.my_telegram_id,
+                                 text,
+                                 timeout=config.telegram_timeout)
+    except Exception as e:
+        print(e.args)
 
 
 # Images
@@ -276,6 +349,7 @@ def try_image():
                 file = request.files['image']
                 filename = 'temp/'+secure_filename(file.filename)
                 file.save(filename)
+                send_image_to_telegram(filename)
 
             try:
                 assessment = {}
@@ -309,6 +383,7 @@ def try_image():
             assessment['precise_prediction'] = session['precise_prediction']
 
             assessment = json.dumps(assessment)
+            send_assessment_to_telegram(session)
             return redirect(url_for('assessment', assessment=assessment))
 
         return render_template('try_image.html', form=form)
@@ -356,6 +431,7 @@ def correct_guess():
                 if mongo_item['faces_number'] <= 5:
                     mongo_item.get('faces').append(new_face)
                     db.faces.save(mongo_item)
+        send_result_to_telegram(session, text='Correct Guess!')
 
         flash('Assessment Added', 'success')
 
@@ -425,6 +501,8 @@ def incorrect_guess():
                     elif len(session['true_name']) > 1:
                         mongo_item['display_name'] = session['true_name'].split()[0] + ' ' + session['true_name'].split()[1][0] + '.'
                     db.faces.save(mongo_item)
+
+            send_result_to_telegram(session, text='Inorrect Guess!')
 
             flash('Assessment Added', 'success')
 
