@@ -93,33 +93,33 @@ def send_image_to_telegram(image):
 def send_assessment_to_telegram(session):
     '''Send info about session to telegram'''
 
-    try:
-        text = 'User: {}\n\
-        Time: {}\n\
-        Faces number: {}\n\
-        Guess was: {}\n\
-        Confidence: {}\n\
-        Parameters\n\
-        Multiple faces: {}\n\
-        No faces: {}\n\
-        Low confidence: {}\n\
-        Precise prediction (already in DB): {}\n\
-        '.format(
-            session.get('username'),
-            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            session.get('faces_number'),
-            ', '.join(session.get('faces')),
-            session.get('confidence'),
-            session.get('multiple_faces'),
-            session.get('no_faces'),
-            session.get('low_confidence'),
-            session.get('precise_prediction')
-            )
-        updater.bot.send_message(config.my_telegram_id,
-                                 text,
-                                 timeout=config.telegram_timeout)
-    except Exception as e:
-        print(e.args)
+    # try:
+    text = 'User: {}\n\
+    Time: {}\n\
+    Faces number: {}\n\
+    Guess was: {}\n\
+    Confidence: {}\n\
+    Parameters\n\
+    Multiple faces: {}\n\
+    No faces: {}\n\
+    Low confidence: {}\n\
+    Precise prediction (already in DB): {}\n\
+    '.format(
+        session.get('username'),
+        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        session.get('faces_number'),
+        ', '.join(session.get('faces')),
+        session.get('confidence'),
+        session.get('multiple_faces'),
+        session.get('no_faces'),
+        session.get('low_confidence'),
+        session.get('precise_prediction')
+        )
+    updater.bot.send_message(config.my_telegram_id,
+                             text,
+                             timeout=config.telegram_timeout)
+    # except Exception as e:
+    #     print(e.args)
 
 
 def send_result_to_telegram(session, text):
