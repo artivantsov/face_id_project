@@ -275,38 +275,40 @@ def save_error_to_db():
 # Assessment
 @app.route('/assessment/')
 def assessment():
-    error = False
-    no_faces = session.get('no_faces')
-    multiple_faces = session.get('multiple_faces')
-    low_confidence = session.get('low_confidence')
-    if no_faces:
-        text = "I don't see any faces here... :("
-        result_code = 0
-        error = True
-    elif multiple_faces:
-        result_code = 2
-        error = True
-        if not session['faces']:
-            text = "I see {} faces here. But I actually don't know any of them!".format(session['faces_number'])
-        elif len(session.get('faces')) == len(session.get('candidates')):
-            text = "I see {} faces here. I guess they are: ".format(session['faces_number'])
-        else:
-            if len(session.get('faces')) > 1:
-                text = "I see {} faces here. I guess {} of them are: ".format(session['faces_number'], len(session.get('faces')))
+    try:
+        error = False
+        no_faces = session.get('no_faces')
+        multiple_faces = session.get('multiple_faces')
+        low_confidence = session.get('low_confidence')
+        if no_faces:
+            text = "I don't see any faces here... :("
+            result_code = 0
+            error = True
+        elif multiple_faces:
+            result_code = 2
+            error = True
+            if not session['faces']:
+                text = "I see {} faces here. But I actually don't know any of them!".format(session['faces_number'])
+            elif len(session.get('faces')) == len(session.get('candidates')):
+                text = "I see {} faces here. I guess they are: ".format(session['faces_number'])
             else:
-                text = "I see {} faces here. I guess one of them is: ".format(session['faces_number'])
-    elif low_confidence:
-        result_code = 3
-        text = "This person doesn't look familiar..."
-    else:
-        result_code = 1
-        text = 'It seems to me, this is a photo of {}'.format(session.get('name'))
-    if error:
-        if not session['error_added']:
-            save_error_to_db()
-            session['error_added'] = True
-    flash('Assessment page', 'success')
-    return render_template('assessment.html', result_code=result_code, text=text, faces=session.get('faces'))
+                if len(session.get('faces')) > 1:
+                    text = "I see {} faces here. I guess {} of them are: ".format(session['faces_number'], len(session.get('faces')))
+                else:
+                    text = "I see {} faces here. I guess one of them is: ".format(session['faces_number'])
+        elif low_confidence:
+            result_code = 3
+            text = "This person doesn't look familiar..."
+        else:
+            result_code = 1
+            text = 'It seems to me, this is a photo of {}'.format(session.get('name'))
+        if error:
+            if not session['error_added']:
+                save_error_to_db()
+                session['error_added'] = True
+        flash('Assessment page', 'success')
+        return render_template('assessment.html', result_code=result_code, text=text, faces=session.get('faces'))
+    return render_template('try_image.html')
 
 
 # Dashboard
@@ -362,9 +364,10 @@ def try_image():
                 if len(descriptors) > 1:
                     session['multiple_faces'] = True
                     session['candidates'] = most_likeleys
-                else:
+                elif len(descriptors) == 1:
                     difference, session["name"] = most_likeleys[0]
                     session['faces'] = [session['name']]
+                    session['descriptor'] = list(descriptors[0])
             except Exception as e:
                 print(e)
                 difference = 1

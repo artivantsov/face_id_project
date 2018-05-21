@@ -81,7 +81,7 @@ class FaceRecognizer:
         for face1 in descriptors1:
             for face2 in descriptors2:
                 self.likelihood = min(self.likelihood, self.is_similar(face1, face2))
-                fits += int(self.threshold_checker(round(self.likelihood, 3), show=verbose))
+                # fits += int(self.threshold_checker(round(self.likelihood, 3), show=verbose))
                 if verbose:
                     print('Pair {}: difference {}'.format(count, self.likelihood))
                     print('')
