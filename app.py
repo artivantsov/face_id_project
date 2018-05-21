@@ -70,7 +70,9 @@ def restore_session(session):
         session['faces_number'] = config.tracker.get('faces_number')
         session['low_confidence'] = config.tracker.get('low_confidence')
         session['precise_prediction'] = config.tracker.get('precise_prediction')
-        session['error_added'] = False
+        session['error_added'] = config.tracker.get('error_added')
+        session['candidates'] = config.tracker.get('candidates')
+        session['faces'] = config.tracker.get('faces')
         return session
 
 
@@ -106,7 +108,7 @@ def send_assessment_to_telegram(session):
             session.get('username'),
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             session.get('faces_number'),
-            session.get('name'),
+            ', '.join(session.get('faces')),
             session.get('confidence'),
             session.get('multiple_faces'),
             session.get('no_faces'),
@@ -121,7 +123,7 @@ def send_assessment_to_telegram(session):
 
 
 def send_result_to_telegram(session, text):
-    '''Send info about session to telegram'''
+    '''Send info about assessment result to telegram'''
 
     try:
         text = '{}\n\
@@ -243,6 +245,11 @@ def logout():
 
 
 def save_error_to_db():
+    print('Error; no_faces: {}; multiple_faces: {}, precise_prediction: {}\
+        '.format(session.get('no_faces'),
+                 session.get('multiple_faces'),
+                 session.get('precise_prediction')
+                 ))
     archive = {
         'name': session['name'],
         'confidence': session['confidence'],
@@ -253,48 +260,51 @@ def save_error_to_db():
         'multiple_faces': session['multiple_faces'],
         'low_confidence': session['low_confidence'],
         'precise_prediction': session['precise_prediction'],
+        'faces_number': session['faces_number'],
         'error': True,
         'to_show': True
         }
+    if session.get('multiple_faces'):
+        archive['name'] = session.get('faces')[0]
+        archive['faces'] = session.get('faces')
     db.archive.save(archive)
 
 
 # Assessment
-@app.route('/assessment/<string:assessment>')
-def assessment(assessment):
+@app.route('/assessment/')
+def assessment():
     error = False
-    if assessment:
-        assessment = json.loads(assessment)
-        no_faces = assessment.get('no_faces')
-        multiple_faces = assessment.get('multiple_faces')
-        low_confidence = assessment.get('low_confidence')
-        # resemblance = confidence_calculator(assessment.get('difference'))
-        if no_faces:
-            text = "I don't see any faces here... :("
-            result_code = 0
-            error = True
-        elif multiple_faces:
-            result_code = 2
-            error = True
-            if low_confidence:
-                text = "I see {} faces here. But I actually don't know any of them!".format(session['faces_number'])
-            else:
-                text = "I see {} faces here. One of them is definately {}!".format(session['faces_number'], assessment.get('person'))
-        elif low_confidence:
-            result_code = 3
-            text = "This person doesn't look familiar..."
+    no_faces = session.get('no_faces')
+    multiple_faces = session.get('multiple_faces')
+    low_confidence = session.get('low_confidence')
+    if no_faces:
+        text = "I don't see any faces here... :("
+        result_code = 0
+        error = True
+    elif multiple_faces:
+        result_code = 2
+        error = True
+        if not session['faces']:
+            text = "I see {} faces here. But I actually don't know any of them!".format(session['faces_number'])
+        elif len(session.get('faces')) == len(session.get('candidates')):
+            text = "I see {} faces here. I guess they are: ".format(session['faces_number'])
         else:
-            result_code = 1
-            text = 'It seems to me, this is a photo of {}'.format(assessment.get('person'))
-        if error:
-            print('Error')
-            if not session['error_added']:
-                save_error_to_db()
-                session['error_added'] = True
-        flash('Assessment page', 'success')
-        return render_template('assessment.html', result_code=result_code, text=text)  # msg=msg,
-    text = "There was some error. No assessment received."
-    return render_template('assessment.html', result_code=-1, text=text)
+            if len(session.get('faces')) > 1:
+                text = "I see {} faces here. I guess {} of them are: ".format(session['faces_number'], len(session.get('faces')))
+            else:
+                text = "I see {} faces here. I guess one of them is: ".format(session['faces_number'])
+    elif low_confidence:
+        result_code = 3
+        text = "This person doesn't look familiar..."
+    else:
+        result_code = 1
+        text = 'It seems to me, this is a photo of {}'.format(session.get('name'))
+    if error:
+        if not session['error_added']:
+            save_error_to_db()
+            session['error_added'] = True
+    flash('Assessment page', 'success')
+    return render_template('assessment.html', result_code=result_code, text=text, faces=session.get('faces'))
 
 
 # Dashboard
@@ -315,7 +325,7 @@ def dashboard():
 def recognize(image):
 
     facecom.main(image)
-    to_return = (facecom.most_likely[0], facecom.most_likely[1], facecom.descriptors)
+    to_return = (facecom.most_likeleys, facecom.descriptors)
     facecom.restore_default()
     return to_return
 
@@ -346,39 +356,34 @@ def try_image():
                 send_image_to_telegram(filename)
 
             try:
-                assessment = {}
-                assessment["difference"], assessment["person"], descriptor = recognize(file)
+                most_likeleys, descriptors = recognize(file)
+                if len(descriptors) > 1:
+                    session['multiple_faces'] = True
+                    session['candidates'] = most_likeleys
+                else:
+                    difference, session["name"] = most_likeleys[0]
             except Exception as e:
                 print(e)
-                assessment = {"difference": 1, "person": "Not assessed"}
-                descriptor = []
-            if assessment.get('difference') == 0:
-                session['precise_prediction'] = True
-            resemblance = confidence_calculator(assessment.get('difference'))
-            if resemblance < 100*(1-config.threshold):
-                session['low_confidence'] = True
-            if not descriptor:
+                difference = 1
+                session['name'] = "Not assessed"
+                descriptors = []
+
+            session['faces_number'] = len(descriptors)
+            if not descriptors:
                 session['no_faces'] = True
+            if session['faces_number'] == 1:
+                if difference == 0:
+                    session['precise_prediction'] = True
+                session['confidence'] = confidence_calculator(difference)
+                if session['confidence'] < confidence_calculator(config.threshold):
+                    session['low_confidence'] = True
 
-            session['name'] = assessment.get('person')
-            session['confidence'] = confidence_calculator(assessment.get('difference'))
-            if not session['no_faces']:
-                try:
-                    session['descriptor'] = list(descriptor[0])
-                except Exception:
-                    print('Could not get a response from recognize(). Assessment: {}'.format(str(assessment)))
-            if len(descriptor) > 1:
-                session['multiple_faces'] = True
-            session['faces_number'] = len(descriptor)
+            elif session['faces_number'] > 1:
+                session['faces'] = [i[1] for i in session.get('candidates')
+                                    if confidence_calculator(i[0]) > confidence_calculator(config.threshold)]
 
-            assessment['no_faces'] = session['no_faces']
-            assessment['multiple_faces'] = session['multiple_faces']
-            assessment['low_confidence'] = session['low_confidence']
-            assessment['precise_prediction'] = session['precise_prediction']
-
-            assessment = json.dumps(assessment)
             send_assessment_to_telegram(session)
-            return redirect(url_for('assessment', assessment=assessment))
+            return redirect(url_for('assessment'))
         return render_template('try_image.html', form=form)
     except Exception as e:
         print('Exception in try_image(): {}, {}'.format(str(e), str(e.args)))
@@ -402,6 +407,7 @@ def correct_guess():
                 'multiple_faces': session['multiple_faces'],
                 'low_confidence': session['low_confidence'],
                 'precise_prediction': session['precise_prediction'],
+                'faces_number': session['faces_number'],
                 'error': False,
                 'to_show': True,
                 }
@@ -461,6 +467,7 @@ def incorrect_guess():
                     'multiple_faces': session['multiple_faces'],
                     'low_confidence': session['low_confidence'],
                     'precise_prediction': session['precise_prediction'],
+                    'faces_number': session['faces_number'],
                     'error': False,
                     'to_show': True,
                     }

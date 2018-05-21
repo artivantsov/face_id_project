@@ -22,7 +22,12 @@
         </form>
         <br>
         <a class="btn btn-success" href="/dashboard"> Not now </a>
-
+      {% elif result_code == 2 %}
+        {% for face in faces %}
+          <h1 class="bg-warning"> - {{ face }} </h1>
+        {% endfor %}
+        <br><br>
+        <a class="btn btn-success" href="/try_image"> Try a new image </a>
 
       {% else %}
         <a class="btn btn-success" href="/try_image"> Try a new image </a>

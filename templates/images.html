@@ -7,15 +7,17 @@
         <tr>
           <th>Name</th>
           <th>Guess</th>
+          <th>Number of faces</th>
           <th>Author</th>
           <th>Date</th>
           <th></th>
           <th></th>
         </tr>
-      {% for image in images%}
+      {% for image in images %}
           <tr>
             <td>{{image.true_name}}</td>
             <td>{{image.name}}</td>
+            <td>{{image.faces_number}}</td>
             <td>{{image.author}}</td>
             <td><a href="images/{{image._id}}">{{image.create_date}}</a></td>
             <td>

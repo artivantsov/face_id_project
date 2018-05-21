@@ -80,7 +80,7 @@ class FaceRecognizer:
         fits = 0
         for face1 in descriptors1:
             for face2 in descriptors2:
-                self.likelihood = self.is_similar(face1, face2)
+                self.likelihood = min(self.likelihood, self.is_similar(face1, face2))
                 fits += int(self.threshold_checker(round(self.likelihood, 3), show=verbose))
                 if verbose:
                     print('Pair {}: difference {}'.format(count, self.likelihood))
@@ -103,7 +103,8 @@ class FaceComparator:
         self.image_folder = config.image_folder
         self.dictionary_file = config.dictionary_file
         self.facer = FaceRecognizer()
-        self.most_likely = config.initial_most_likely
+        self.most_likely = config.comparator.get('most_likely')
+        self.most_likeleys = config.comparator.get('most_likeleys')
         self.db = pymongo.MongoClient(
             config.mongo_config.get('host'),
             config.mongo_config.get('port')
@@ -122,12 +123,13 @@ class FaceComparator:
     def restore_default(self):
         '''Set all image parameters to None'''
 
-        self.image_file = None
-        self.image = None
-        self.faces = None
-        self.shapes = None
-        self.descriptors = None
-        self.most_likely = config.initial_most_likely
+        self.image_file = config.comparator.get('image_file')
+        self.image = config.comparator.get('image')
+        self.faces = config.comparator.get('faces')
+        self.shapes = config.comparator.get('shapes')
+        self.descriptors = config.comparator.get('descriptors')
+        self.most_likely = config.comparator.get('most_likely')
+        self.most_likeleys = config.comparator.get('most_likeleys')
 
     def load_dictionary(self):
         '''Load dictionary of numbers of known people and their actual names'''
@@ -141,11 +143,17 @@ class FaceComparator:
         if difference < self.most_likely[0]:
             self.most_likely = (difference, name)
 
+    def compare_multiple_differences(self, difference, name, most_likely):
+        if difference < most_likely[0]:
+            return difference, name
+        return most_likely
+
     def iterate(self, show=False):
         '''Iterate on a dictionary to find a person most likely to be on the photo.
            The show parameter allows verbosity'''
 
         for key, name in self.dictionary.items():
+            self.facer.__init__()
             current_file = self.image_folder+key+'.jpg'
             image = self.facer.load_image(current_file, show=show, title=name)
             faces = self.facer.detect_faces(image)
@@ -158,6 +166,7 @@ class FaceComparator:
         for key, name in self.dictionary.items():
             path = self.image_folder+key
             for file in listdir(path):
+                self.facer.__init__()
                 image = self.facer.load_image(path+'/'+file, show=show, title=name)
                 faces = self.facer.detect_faces(image)
                 shapes = self.facer.make_mask(image, faces, show_coords=show)
@@ -169,24 +178,50 @@ class FaceComparator:
         for item in self.db.faces.find():
             name = item['name']
             for face in item['faces']:
+                self.facer.__init__()
                 descriptors = [face['descriptor']]
                 self.facer.compare_faces(self.descriptors, descriptors, verbose=show)
                 self.compare_differences(self.facer.likelihood, name)
+                # print(self.most_likely)
+
+    def multiple_iterate_over_db(self, show=False):
+
+        self.most_likeleys = [config.comparator.get('most_likely') for i in range(len(self.descriptors))]
+        for item in self.db.faces.find():
+            name = item['name']
+            for face in item['faces']:
+                for idx in range(len(self.descriptors)):
+                    photo_descriptor = [self.descriptors[idx]]
+                    self.facer.__init__()
+                    descriptors = [face['descriptor']]
+                    self.facer.compare_faces(photo_descriptor, descriptors, verbose=show)
+                    self.most_likeleys[idx] = self.compare_multiple_differences(
+                        self.facer.likelihood,
+                        name,
+                        self.most_likeleys[idx])
+        print(self.most_likeleys)
 
     def display_name(self):
         '''Display answer in human-readable format'''
 
         print('\n----------------')
-        print('Likelihood: {}'.format(self.most_likely[0]))
-        if self.most_likely[0] < self.facer.threshold:
-            print('I guess this is photo of {}!'.format(self.most_likely[1]))
-        elif self.most_likely[0] > 1:
+        FOUND = False
+        if not self.most_likeleys:
             print('I do not see any faces on this photo!')
         else:
-            print("Face on this photo doesn't look familiar for me!")
+            print('I guess this is photo of: ')
+            for face in self.most_likeleys:
+                if face[0] < self.facer.threshold:
+                    FOUND = True
+                    print(face[1])
+            if not FOUND:
+                if len(self.most_likeleys) > 1:
+                    print('{} unknown people'.format(len(self.most_likeleys)))
+                else:
+                    print('one unknown person')
         print('----------------')
 
-    def main(self, image_file, show=True, iterator='db'):
+    def main(self, image_file, show=True, iterator='multi_db'):
         '''Launcher. The show parameter allows verbosity'''
 
         # self.load_dictionary()
@@ -194,6 +229,8 @@ class FaceComparator:
         self.process_image(show=False)
         if iterator == 'db':
             self.iterate_over_db(show=False)
+        elif iterator == 'multi_db':
+            self.multiple_iterate_over_db(show=False)
         elif iterator == 'folder':
             self.iterate_by_folders(show=False)
         if show:
