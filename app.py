@@ -308,7 +308,9 @@ def assessment():
                 session['error_added'] = True
         flash('Assessment page', 'success')
         return render_template('assessment.html', result_code=result_code, text=text, faces=session.get('faces'))
-    return render_template('try_image.html')
+    except Exception, e:
+        print(e, e.args)
+        return render_template('try_image.html')
 
 
 # Dashboard
