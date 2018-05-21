@@ -93,33 +93,34 @@ def send_image_to_telegram(image):
 def send_assessment_to_telegram(session):
     '''Send info about session to telegram'''
 
-    # try:
-    text = 'User: {}\n\
-    Time: {}\n\
-    Faces number: {}\n\
-    Guess was: {}\n\
-    Confidence: {}\n\
-    Parameters\n\
-    Multiple faces: {}\n\
-    No faces: {}\n\
-    Low confidence: {}\n\
-    Precise prediction (already in DB): {}\n\
-    '.format(
-        session.get('username'),
-        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        session.get('faces_number'),
-        ', '.join(session.get('faces')),
-        session.get('confidence'),
-        session.get('multiple_faces'),
-        session.get('no_faces'),
-        session.get('low_confidence'),
-        session.get('precise_prediction')
-        )
-    updater.bot.send_message(config.my_telegram_id,
-                             text,
-                             timeout=config.telegram_timeout)
-    # except Exception as e:
-    #     print(e.args)
+    try:
+        print(session.get('faces'))
+        text = 'User: {}\n\
+        Time: {}\n\
+        Faces number: {}\n\
+        Guess was: {}\n\
+        Confidence: {}\n\
+        Parameters\n\
+        Multiple faces: {}\n\
+        No faces: {}\n\
+        Low confidence: {}\n\
+        Precise prediction (already in DB): {}\n\
+        '.format(
+            session.get('username'),
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            session.get('faces_number'),
+            ', '.join(session.get('faces')),
+            session.get('confidence'),
+            session.get('multiple_faces'),
+            session.get('no_faces'),
+            session.get('low_confidence'),
+            session.get('precise_prediction')
+            )
+        updater.bot.send_message(config.my_telegram_id,
+                                 text,
+                                 timeout=config.telegram_timeout)
+    except Exception as e:
+        print(e.args)
 
 
 def send_result_to_telegram(session, text):
@@ -265,8 +266,9 @@ def save_error_to_db():
         'to_show': True
         }
     if session.get('multiple_faces'):
-        archive['name'] = session.get('faces')[0]
-        archive['faces'] = session.get('faces')
+        if session.get('faces'):
+            archive['name'] = session.get('faces')[0]
+            archive['faces'] = session.get('faces')
     db.archive.save(archive)
 
 
@@ -362,6 +364,7 @@ def try_image():
                     session['candidates'] = most_likeleys
                 else:
                     difference, session["name"] = most_likeleys[0]
+                    session['faces'] = [session['name']]
             except Exception as e:
                 print(e)
                 difference = 1
@@ -377,6 +380,7 @@ def try_image():
                 session['confidence'] = confidence_calculator(difference)
                 if session['confidence'] < confidence_calculator(config.threshold):
                     session['low_confidence'] = True
+                    session['faces'] = []
 
             elif session['faces_number'] > 1:
                 session['faces'] = [i[1] for i in session.get('candidates')
