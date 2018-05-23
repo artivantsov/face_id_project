@@ -9,7 +9,6 @@ from functools import wraps
 from werkzeug.utils import secure_filename
 import os
 from face_recognizer import FaceComparator
-import json
 import pymongo
 from bson.objectid import ObjectId
 from datetime import datetime
@@ -94,7 +93,6 @@ def send_assessment_to_telegram(session):
     '''Send info about session to telegram'''
 
     try:
-        print(session.get('faces'))
         text = 'User: {}\n\
         Time: {}\n\
         Faces number: {}\n\

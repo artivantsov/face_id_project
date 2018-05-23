@@ -148,6 +148,14 @@ class FaceComparator:
             return difference, name
         return most_likely
 
+    def take_an_average(self, lists):
+        n = float(len(lists))
+        result = [0 for _ in range(len(lists[0]))]
+        for i in range(len(lists[0])):
+            for lst in lists:
+                result[i] += lst[i][0]
+        return [round(i/n, 3) for i in result]
+
     def iterate(self, show=False):
         '''Iterate on a dictionary to find a person most likely to be on the photo.
            The show parameter allows verbosity'''
@@ -201,6 +209,36 @@ class FaceComparator:
                         self.most_likeleys[idx])
         print(self.most_likeleys)
 
+    def average_iterate_over_db(self, show=False):
+
+        self.most_likeleys = [config.comparator.get('most_likely') for i in range(len(self.descriptors))]
+        for item in self.db.faces.find():
+            name = item['name']
+            guesses = []
+            for face in item['faces']:
+                guess = [config.comparator.get('most_likely') for i in range(len(self.descriptors))]
+                for idx in range(len(self.descriptors)):
+                    photo_descriptor = [self.descriptors[idx]]
+                    self.facer.__init__()
+                    descriptors = [face['descriptor']]
+                    self.facer.compare_faces(photo_descriptor, descriptors, verbose=show)
+                    guess[idx] = (self.facer.likelihood, name)
+                    for i in range(len(guess)):
+                        if guess[i] == (0.0, name):
+                            self.most_likeleys[i] = guess[i]
+                guesses.append(guess)
+
+            result_guess = self.take_an_average(guesses)
+            # print(guesses)
+            print('Name: ', name, ', Result guess: ', result_guess)
+
+            for index in range(len(self.descriptors)):
+                self.most_likeleys[index] = self.compare_multiple_differences(
+                        result_guess[index],
+                        name,
+                        self.most_likeleys[index])
+        print(self.most_likeleys)
+
     def display_name(self):
         '''Display answer in human-readable format'''
 
@@ -221,7 +259,7 @@ class FaceComparator:
                     print('one unknown person')
         print('----------------')
 
-    def main(self, image_file, show=True, iterator='multi_db'):
+    def main(self, image_file, show=True, iterator='avg_db'):
         '''Launcher. The show parameter allows verbosity'''
 
         # self.load_dictionary()
@@ -231,6 +269,8 @@ class FaceComparator:
             self.iterate_over_db(show=False)
         elif iterator == 'multi_db':
             self.multiple_iterate_over_db(show=False)
+        elif iterator == 'avg_db':
+            self.average_iterate_over_db(show=False)
         elif iterator == 'folder':
             self.iterate_by_folders(show=False)
         if show:
