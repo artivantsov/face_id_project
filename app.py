@@ -563,6 +563,15 @@ def hide_image(id):
     return redirect(url_for('images'))
 
 
+# Delete person
+@app.route('/delete_person/<string:id>', methods=['POST'])
+@is_logged_in
+def delete_person(id):
+
+    db.faces.delete_one({'_id': ObjectId(id)})
+    return redirect(url_for('dashboard'))
+
+
 if __name__ == '__main__':
     app.secret_key = config.secret_key
     app.run(debug=True)

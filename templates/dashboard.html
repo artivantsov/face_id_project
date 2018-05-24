@@ -10,11 +10,20 @@
       <tr>
         <th>Name</th>
         <th>Number of photos</th>
+        <th></th>
       </tr>
       {% for image in images %}
         <tr>
           <td>{{image.display_name}}</td>
           <td>{{image.faces_number}}</td>
+          {% if session.username == "admin" %}
+          <td>
+                <form action="{{url_for('delete_person', id=image._id)}}" method="post">
+                    <input type="hidden" name="_method" value="DELETE">
+                    <input type="submit" value="Delete" class="btn btn-danger">
+                </form>
+            </td>
+          {% endif %}
         </tr>
       {% endfor %}
     </table>
