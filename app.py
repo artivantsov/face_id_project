@@ -306,14 +306,18 @@ def assessment():
             result_code = 2
             error = True
             if not session['faces']:
-                text = "I see {} faces here. But I actually don't know any of them!".format(session['faces_number'])
+                # text = "I see {} faces here. But I actually don't know any of them!".format(session['faces_number'])
+                text = "I haven't seen anybody from this photo before..."
             elif len(session.get('faces')) == len(session.get('candidates')):
-                text = "I see {} faces here. I guess they are: ".format(session['faces_number'])
+                # text = "I see {} faces here. I guess they are: ".format(session['faces_number'])
+                text = 'Here are people, that I know on this photo: '
             else:
                 if len(session.get('faces')) > 1:
-                    text = "I see {} faces here. I guess {} of them are: ".format(session['faces_number'], len(session.get('faces')))
+                    # text = "I see {} faces here. I guess {} of them are: ".format(session['faces_number'], len(session.get('faces')))
+                    text = 'I guess {} faces on this photo are: '.format(len(session.get('faces')))
                 else:
-                    text = "I see {} faces here. I guess one of them is: ".format(session['faces_number'])
+                    # text = "I see {} faces here. I guess one of them is: ".format(session['faces_number'])
+                    text = 'I have seen one person from this photo before! That is: '
         elif low_confidence:
             result_code = 3
             text = "This person doesn't look familiar..."
