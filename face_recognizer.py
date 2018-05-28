@@ -1,3 +1,4 @@
+from __future__ import print_function
 import dlib
 from skimage import io
 from scipy.spatial import distance
@@ -6,6 +7,9 @@ import json
 import pymongo
 from os import listdir
 from config import config
+import numpy as np
+from PIL import Image
+# import face_recognition_models # if using load_model_from_dlib
 
 # %matplotlib inline
 
@@ -20,6 +24,19 @@ class FaceRecognizer:
         self.likelihood = config.likelihood
 
     def load_image(self, name, show=True, title='Unknown'):
+
+        pic = Image.open(name)
+        pic.thumbnail(config.resize_value)
+        image = np.array(pic)
+        if not show:
+            return image
+        plt.figure()
+        plt.imshow(image)
+        plt.title(title)
+        plt.show()
+        return image
+
+    def load_image1(self, name, show=True, title='Unknown'):
 
         image = io.imread(name)
         if not show:
@@ -46,6 +63,15 @@ class FaceRecognizer:
         self.model = dlib.face_recognition_model_v1(model_file)
         self.detector = dlib.get_frontal_face_detector()
 
+    # def load_model_from_dlib(self):
+    #     self.detector = dlib.get_frontal_face_detector()
+    #     predictor_68_point_model = face_recognition_models.pose_predictor_model_location()
+
+    #     self.predictor = dlib.shape_predictor(predictor_68_point_model)
+    #     face_recognition_model = face_recognition_models.face_recognition_model_location()
+
+    #     self.model = dlib.face_recognition_model_v1(face_recognition_model)
+
     def detect_faces(self, image):
         return self.detector(image, 1)
 
@@ -63,7 +89,6 @@ class FaceRecognizer:
                  key+1, face.left(), face.top(), face.right(), face.bottom()))
             shape = self.predictor(image, face)
             shapes.append(shape)
-
         return shapes
 
     def get_face_descriptors(self, image, shapes):
@@ -77,16 +102,14 @@ class FaceRecognizer:
 
     def compare_faces(self, descriptors1, descriptors2, verbose=True):
         count = 1
-        fits = 0
         for face1 in descriptors1:
             for face2 in descriptors2:
                 self.likelihood = min(self.likelihood, self.is_similar(face1, face2))
-                # fits += int(self.threshold_checker(round(self.likelihood, 3), show=verbose))
                 if verbose:
                     print('Pair {}: difference {}'.format(count, self.likelihood))
                     print('')
                 count += 1
-        return fits
+        return
 
     def run(self):
         self.load_model(self.model_file_name, self.points_file_name)
@@ -111,14 +134,51 @@ class FaceComparator:
             ).faces
         self.facer.run()
 
+    def update_descriptors(self, all_descriptors, new_descriptors):
+        result = list(all_descriptors)
+        for new_d in new_descriptors:
+            TO_ADD = True
+            for old_d in all_descriptors:
+                print('difference: ', self.facer.is_similar(old_d, new_d))
+                if self.facer.is_similar(old_d, new_d) < config.distinct_descriptors_threshold:
+                    TO_ADD = False
+            if TO_ADD:
+                result.append(new_d)
+            print('total: ', len(result))
+        return result
+
+    def process_image_without_rotation(self, show=True):
+        '''Load photo, find faces on it and describe them as vectors.
+           The show parameter allows verbosity'''
+        import timeit
+        start = timeit.default_timer()
+        self.image = self.facer.load_image(self.image_file, show)
+        print('Loading image: ', timeit.default_timer()-start)
+        self.faces = self.facer.detect_faces(self.image)
+        print('Detecting faces: ', timeit.default_timer()-start)
+        self.shapes = self.facer.make_mask(self.image, self.faces, show_coords=show)
+        print('Making mask: ', timeit.default_timer()-start)
+        self.descriptors = self.facer.get_face_descriptors(self.image, self.shapes)
+        print('Time of processing: ', timeit.default_timer()-start)
+
     def process_image(self, show=True):
         '''Load photo, find faces on it and describe them as vectors.
            The show parameter allows verbosity'''
 
         self.image = self.facer.load_image(self.image_file, show)
-        self.faces = self.facer.detect_faces(self.image)
-        self.shapes = self.facer.make_mask(self.image, self.faces, show_coords=show)
-        self.descriptors = self.facer.get_face_descriptors(self.image, self.shapes)
+        image = self.image
+        faces = self.facer.detect_faces(image)
+        shapes = self.facer.make_mask(image, faces, show_coords=show)
+        self.descriptors = self.facer.get_face_descriptors(image, shapes)
+        print('Currently faces: ', len(self.descriptors))
+        for _ in range(3):
+            image = np.rot90(image, k=1, axes=(0, 1))
+            faces = self.facer.detect_faces(image)
+            shapes = self.facer.make_mask(image, faces, show_coords=show)
+            descriptors = self.facer.get_face_descriptors(image, shapes)
+            print('++', len(descriptors))
+            self.descriptors = self.update_descriptors(self.descriptors, descriptors)
+            print(len(self.descriptors))
 
     def restore_default(self):
         '''Set all image parameters to None'''
@@ -279,5 +339,6 @@ class FaceComparator:
 
 
 if __name__ == '__main__':
-    facecom = FaceComparator('img/urgant2.jpg')
-    facecom.main()
+    facecom = FaceComparator()
+    facecom.main('img/urgant2.jpg')
+    # facecom.facer.load_image('img/urgant2.jpg')

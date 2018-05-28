@@ -1,3 +1,4 @@
+from __future__ import print_function
 from flask import Flask, render_template, flash, redirect, url_for, session
 from flask import request
 from flask_uploads import UploadSet, configure_uploads, IMAGES, patch_request_class
@@ -148,10 +149,24 @@ def send_result_to_telegram(session, text):
 @app.route('/images')
 @is_logged_in
 def images():
-    if session['username'] == 'admin':
+    if session.get('rights') == 'admin':
         result = db.archive.find().sort('create_date', -1)
     else:
         result = db.archive.find({'author': session['username']}).sort('create_date', -1)
+
+    if result.count() > 0:
+        return render_template('images.html', images=result)
+    else:
+        msg = 'No images found'
+        return render_template('images.html', msg=msg)
+
+
+# Admin images
+@app.route('/admin_images')
+@is_logged_in
+def admin_images():
+
+    result = db.archive.find({'author': session['username']}).sort('create_date', -1)
 
     if result.count() > 0:
         return render_template('images.html', images=result)
@@ -216,6 +231,11 @@ def login():
                 # Passed
                 session['logged_in'] = True
                 session['username'] = username
+                if session['username'] in config.admin_names:
+                    pass
+                    session['rights'] = 'admin'
+                else:
+                    session['rights'] = 'user'
 
                 flash('You are now logged in', 'success')
                 return redirect(url_for('dashboard'))
@@ -503,9 +523,9 @@ def incorrect_guess():
                                   'faces_number': 1,
                                   'faces': [new_face]
                                   }
-                    if len(session['true_name']) <= 1:
+                    if len(session['true_name'].split()) <= 1:
                         mongo_item['display_name'] = session['true_name'].split()[0]
-                    elif len(session['true_name']) > 1:
+                    elif len(session['true_name'].split()) > 1:
                         mongo_item['display_name'] = session['true_name'].split()[0] + ' ' + session['true_name'].split()[1][0] + '.'
                     db.faces.save(mongo_item)
 
@@ -574,4 +594,4 @@ def delete_person(id):
 
 if __name__ == '__main__':
     app.secret_key = config.secret_key
-    app.run(debug=True)
+    app.run(debug=False)

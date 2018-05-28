@@ -2,6 +2,10 @@
 
 {% block body %}
   <h1>Recent Images</h1>
+  {% if session.rights == "admin" %}
+    <a class="btn btn-info" href="/admin_images"><i class="glyphicon glyphicon-eye-close"></i> Show only my images </a>
+    <a class="btn btn-warning" href="/images"> Show all images </a>
+  {% endif %}
     <div class table-responsive>
       <table class="table table-striped table-hover">
         <tr>
